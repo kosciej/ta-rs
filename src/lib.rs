@@ -59,6 +59,7 @@ mod helpers;
 
 pub mod errors;
 pub mod indicators;
+pub mod generic_indicators;
 
 mod traits;
 pub use crate::traits::*;

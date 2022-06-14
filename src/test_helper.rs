@@ -87,7 +87,7 @@ macro_rules! test_indicator {
             let bar = Bar::new();
 
             // ensure Default trait is implemented
-            let mut indicator = $i::default();
+            let mut indicator = <$i>::default();
 
             // ensure Next<f64> is implemented
             let first_output = indicator.next(12.3);
