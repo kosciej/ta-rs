@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 /// #[macro_use] extern crate assert_approx_eq;
 ///
 /// use ta::{Next, DataItem};
-/// use ta::indicators::TrueRange;
+/// use ta::generic_indicators::TrueRange;
 ///
 /// fn main() {
 ///     let data = vec![

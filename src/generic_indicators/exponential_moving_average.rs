@@ -1,6 +1,5 @@
 use std::fmt;
 
-use crate::errors::{Result, TaError};
 use crate::{Close, Next, Period, Reset};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -37,10 +36,10 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```
-/// use ta::indicators::ExponentialMovingAverage;
+/// use ta::generic_indicators::ExponentialMovingAverage;
 /// use ta::Next;
 ///
-/// let mut ema = ExponentialMovingAverage::new(3).unwrap();
+/// let mut ema = ExponentialMovingAverage::<3>::new();
 /// assert_eq!(ema.next(2.0), 2.0);
 /// assert_eq!(ema.next(5.0), 3.5);
 /// assert_eq!(ema.next(1.0), 2.25);
@@ -55,34 +54,29 @@ use serde::{Deserialize, Serialize};
 #[doc(alias = "EMA")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct ExponentialMovingAverage {
-    period: usize,
+pub struct ExponentialMovingAverage<const N: usize = 9> {
     k: f64,
     current: f64,
     is_new: bool,
 }
 
-impl ExponentialMovingAverage {
-    pub fn new(period: usize) -> Result<Self> {
-        match period {
-            0 => Err(TaError::InvalidParameter),
-            _ => Ok(Self {
-                period,
-                k: 2.0 / (period + 1) as f64,
+impl<const N: usize> ExponentialMovingAverage<N> {
+    pub fn new() -> Self {
+        Self {
+                k: 2.0 / (N + 1) as f64,
                 current: 0.0,
                 is_new: true,
-            }),
-        }
+            }
     }
 }
 
-impl Period for ExponentialMovingAverage {
+impl<const N: usize> Period for ExponentialMovingAverage<N> {
     fn period(&self) -> usize {
-        self.period
+        N
     }
 }
 
-impl Next<f64> for ExponentialMovingAverage {
+impl<const N: usize> Next<f64> for ExponentialMovingAverage<N> {
     type Output = f64;
 
     fn next(&mut self, input: f64) -> Self::Output {
@@ -96,7 +90,7 @@ impl Next<f64> for ExponentialMovingAverage {
     }
 }
 
-impl<T: Close> Next<&T> for ExponentialMovingAverage {
+impl<T: Close, const N: usize> Next<&T> for ExponentialMovingAverage<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -104,22 +98,22 @@ impl<T: Close> Next<&T> for ExponentialMovingAverage {
     }
 }
 
-impl Reset for ExponentialMovingAverage {
+impl<const N: usize> Reset for ExponentialMovingAverage<N> {
     fn reset(&mut self) {
         self.current = 0.0;
         self.is_new = true;
     }
 }
 
-impl Default for ExponentialMovingAverage {
+impl Default for ExponentialMovingAverage<9> {
     fn default() -> Self {
-        Self::new(9).unwrap()
+        ExponentialMovingAverage::<9>::new()
     }
 }
 
-impl fmt::Display for ExponentialMovingAverage {
+impl<const N: usize> fmt::Display for ExponentialMovingAverage<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "EMA({})", self.period)
+        write!(f, "EMA({})", N)
     }
 }
 
@@ -131,21 +125,15 @@ mod tests {
     test_indicator!(ExponentialMovingAverage);
 
     #[test]
-    fn test_new() {
-        assert!(ExponentialMovingAverage::new(0).is_err());
-        assert!(ExponentialMovingAverage::new(1).is_ok());
-    }
-
-    #[test]
     fn test_next() {
-        let mut ema = ExponentialMovingAverage::new(3).unwrap();
+        let mut ema = ExponentialMovingAverage::<3>::new();
 
         assert_eq!(ema.next(2.0), 2.0);
         assert_eq!(ema.next(5.0), 3.5);
         assert_eq!(ema.next(1.0), 2.25);
         assert_eq!(ema.next(6.25), 4.25);
 
-        let mut ema = ExponentialMovingAverage::new(3).unwrap();
+        let mut ema = ExponentialMovingAverage::<3>::new();
         let bar1 = Bar::new().close(2);
         let bar2 = Bar::new().close(5);
         assert_eq!(ema.next(&bar1), 2.0);
@@ -154,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut ema = ExponentialMovingAverage::new(5).unwrap();
+        let mut ema = ExponentialMovingAverage::<5>::new();
 
         assert_eq!(ema.next(4.0), 4.0);
         ema.next(10.0);
@@ -173,7 +161,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let ema = ExponentialMovingAverage::new(7).unwrap();
+        let ema = ExponentialMovingAverage::<7>::new();
         assert_eq!(format!("{}", ema), "EMA(7)");
     }
 }

@@ -1,6 +1,5 @@
 use std::fmt;
 
-use crate::errors::{Result, TaError};
 use crate::{Close, Next, Period, Reset};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -26,10 +25,10 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```
-/// use ta::indicators::StandardDeviation;
+/// use ta::generic_indicators::StandardDeviation;
 /// use ta::Next;
 ///
-/// let mut sd = StandardDeviation::new(3).unwrap();
+/// let mut sd = StandardDeviation::<3>::new();
 /// assert_eq!(sd.next(10.0), 0.0);
 /// assert_eq!(sd.next(20.0), 5.0);
 /// ```
@@ -41,55 +40,56 @@ use serde::{Deserialize, Serialize};
 #[doc(alias = "SD")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct StandardDeviation {
-    period: usize,
+pub struct StandardDeviation<const N: usize = 9> {
     index: usize,
     count: usize,
     m: f64,
     m2: f64,
-    deque: Box<[f64]>,
+    deque: [f64; N],
 }
 
-impl StandardDeviation {
-    pub fn new(period: usize) -> Result<Self> {
-        match period {
-            0 => Err(TaError::InvalidParameter),
-            _ => Ok(Self {
-                period,
+impl<const N: usize> StandardDeviation<N> {
+    pub fn new() -> Self {
+            Self {
                 index: 0,
                 count: 0,
                 m: 0.0,
                 m2: 0.0,
-                deque: vec![0.0; period].into_boxed_slice(),
-            }),
+                deque: [0.0; N],
+            }
         }
-    }
 
     pub(super) fn mean(&self) -> f64 {
         self.m
     }
 }
 
-impl Period for StandardDeviation {
-    fn period(&self) -> usize {
-        self.period
+impl Default for StandardDeviation<9> {
+    fn default() -> Self {
+        StandardDeviation::<9>::new()
     }
 }
 
-impl Next<f64> for StandardDeviation {
+impl<const N: usize> Period for StandardDeviation<N> {
+    fn period(&self) -> usize {
+        N
+    }
+}
+
+impl<const N: usize> Next<f64> for StandardDeviation<N> {
     type Output = f64;
 
     fn next(&mut self, input: f64) -> Self::Output {
         let old_val = self.deque[self.index];
         self.deque[self.index] = input;
 
-        self.index = if self.index + 1 < self.period {
+        self.index = if self.index + 1 < self.period() {
             self.index + 1
         } else {
             0
         };
 
-        if self.count < self.period {
+        if self.count < self.period() {
             self.count += 1;
             let delta = input - self.m;
             self.m += delta / self.count as f64;
@@ -98,7 +98,7 @@ impl Next<f64> for StandardDeviation {
         } else {
             let delta = input - old_val;
             let old_m = self.m;
-            self.m += delta / self.period as f64;
+            self.m += delta / self.period() as f64;
             let delta2 = input - self.m + old_val - old_m;
             self.m2 += delta * delta2;
         }
@@ -110,7 +110,7 @@ impl Next<f64> for StandardDeviation {
     }
 }
 
-impl<T: Close> Next<&T> for StandardDeviation {
+impl<T: Close, const N: usize> Next<&T> for StandardDeviation<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -118,27 +118,21 @@ impl<T: Close> Next<&T> for StandardDeviation {
     }
 }
 
-impl Reset for StandardDeviation {
+impl<const N: usize> Reset for StandardDeviation<N> {
     fn reset(&mut self) {
         self.index = 0;
         self.count = 0;
         self.m = 0.0;
         self.m2 = 0.0;
-        for i in 0..self.period {
+        for i in 0..N {
             self.deque[i] = 0.0;
         }
     }
 }
 
-impl Default for StandardDeviation {
-    fn default() -> Self {
-        Self::new(9).unwrap()
-    }
-}
-
-impl fmt::Display for StandardDeviation {
+impl<const N: usize> fmt::Display for StandardDeviation<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "SD({})", self.period)
+        write!(f, "SD({})", N)
     }
 }
 
@@ -149,15 +143,10 @@ mod tests {
 
     test_indicator!(StandardDeviation);
 
-    #[test]
-    fn test_new() {
-        assert!(StandardDeviation::new(0).is_err());
-        assert!(StandardDeviation::new(1).is_ok());
-    }
 
     #[test]
     fn test_next() {
-        let mut sd = StandardDeviation::new(4).unwrap();
+        let mut sd = StandardDeviation::<4>::new();
         assert_eq!(sd.next(10.0), 0.0);
         assert_eq!(sd.next(20.0), 5.0);
         assert_eq!(round(sd.next(30.0)), 8.165);
@@ -168,7 +157,7 @@ mod tests {
 
     #[test]
     fn test_next_floating_point_error() {
-        let mut sd = StandardDeviation::new(6).unwrap();
+        let mut sd = StandardDeviation::<6>::new();
         assert_eq!(sd.next(1.872), 0.0);
         assert_eq!(round(sd.next(1.0)), 0.436);
         assert_eq!(round(sd.next(1.0)), 0.411);
@@ -184,7 +173,7 @@ mod tests {
             Bar::new().close(close)
         }
 
-        let mut sd = StandardDeviation::new(4).unwrap();
+        let mut sd = StandardDeviation::<4>::new();
         assert_eq!(sd.next(&bar(10.0)), 0.0);
         assert_eq!(sd.next(&bar(20.0)), 5.0);
         assert_eq!(round(sd.next(&bar(30.0))), 8.165);
@@ -195,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_next_same_values() {
-        let mut sd = StandardDeviation::new(3).unwrap();
+        let mut sd = StandardDeviation::<3>::new();
         assert_eq!(sd.next(4.2), 0.0);
         assert_eq!(sd.next(4.2), 0.0);
         assert_eq!(sd.next(4.2), 0.0);
@@ -204,7 +193,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut sd = StandardDeviation::new(4).unwrap();
+        let mut sd = StandardDeviation::<4>::new();
         assert_eq!(sd.next(10.0), 0.0);
         assert_eq!(sd.next(20.0), 5.0);
         assert_eq!(round(sd.next(30.0)), 8.165);
@@ -220,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let sd = StandardDeviation::new(5).unwrap();
+        let sd = StandardDeviation::<5>::new();
         assert_eq!(format!("{}", sd), "SD(5)");
     }
 }

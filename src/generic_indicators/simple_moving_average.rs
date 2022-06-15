@@ -58,7 +58,7 @@ impl Default for SimpleMovingAverage<9> {
     }
 }
 
-impl<const N: usize> SimpleMovingAverage<N> where [(); N-1]:{
+impl<const N: usize> SimpleMovingAverage<N> {
     pub fn new() -> Self {
         Self {
             index: 0,
