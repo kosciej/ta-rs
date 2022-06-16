@@ -1,7 +1,6 @@
 use std::f64::INFINITY;
 use std::fmt;
 
-use crate::errors::{Result, TaError};
 use crate::{Low, Next, Period, Reset};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -15,10 +14,10 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```
-/// use ta::indicators::Minimum;
+/// use ta::generic_indicators::Minimum;
 /// use ta::Next;
 ///
-/// let mut min = Minimum::new(3).unwrap();
+/// let mut min = Minimum::<3>::new();
 /// assert_eq!(min.next(10.0), 10.0);
 /// assert_eq!(min.next(11.0), 10.0);
 /// assert_eq!(min.next(12.0), 10.0);
@@ -26,23 +25,18 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct Minimum {
-    period: usize,
+pub struct Minimum<const N: usize = 14> {
     min_index: usize,
     cur_index: usize,
-    deque: Box<[f64]>,
+    deque: [f64; N],
 }
 
-impl Minimum {
-    pub fn new(period: usize) -> Result<Self> {
-        match period {
-            0 => Err(TaError::InvalidParameter),
-            _ => Ok(Self {
-                period,
-                min_index: 0,
-                cur_index: 0,
-                deque: vec![INFINITY; period].into_boxed_slice(),
-            }),
+impl<const N: usize> Minimum<N> {
+    pub fn new() -> Self {
+        Self {
+            min_index: 0,
+            cur_index: 0,
+            deque: [INFINITY; N],
         }
     }
 
@@ -61,13 +55,13 @@ impl Minimum {
     }
 }
 
-impl Period for Minimum {
+impl<const N: usize> Period for Minimum<N> {
     fn period(&self) -> usize {
-        self.period
+        N
     }
 }
 
-impl Next<f64> for Minimum {
+impl<const N: usize> Next<f64> for Minimum<N> {
     type Output = f64;
 
     fn next(&mut self, input: f64) -> Self::Output {
@@ -79,7 +73,7 @@ impl Next<f64> for Minimum {
             self.min_index = self.find_min_index();
         }
 
-        self.cur_index = if self.cur_index + 1 < self.period {
+        self.cur_index = if self.cur_index + 1 < N {
             self.cur_index + 1
         } else {
             0
@@ -89,7 +83,7 @@ impl Next<f64> for Minimum {
     }
 }
 
-impl<T: Low> Next<&T> for Minimum {
+impl<T: Low, const N: usize> Next<&T> for Minimum<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -97,23 +91,23 @@ impl<T: Low> Next<&T> for Minimum {
     }
 }
 
-impl Reset for Minimum {
+impl<const N: usize> Reset for Minimum<N> {
     fn reset(&mut self) {
-        for i in 0..self.period {
+        for i in 0..N {
             self.deque[i] = INFINITY;
         }
     }
 }
 
-impl Default for Minimum {
+impl Default for Minimum<14> {
     fn default() -> Self {
-        Self::new(14).unwrap()
+        Self::new()
     }
 }
 
-impl fmt::Display for Minimum {
+impl<const N: usize> fmt::Display for Minimum<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "MIN({})", self.period)
+        write!(f, "MIN({})", N)
     }
 }
 
@@ -125,14 +119,8 @@ mod tests {
     test_indicator!(Minimum);
 
     #[test]
-    fn test_new() {
-        assert!(Minimum::new(0).is_err());
-        assert!(Minimum::new(1).is_ok());
-    }
-
-    #[test]
     fn test_next() {
-        let mut min = Minimum::new(3).unwrap();
+        let mut min = Minimum::<3>::new();
 
         assert_eq!(min.next(4.0), 4.0);
         assert_eq!(min.next(1.2), 1.2);
@@ -152,7 +140,7 @@ mod tests {
             Bar::new().low(low)
         }
 
-        let mut min = Minimum::new(3).unwrap();
+        let mut min = Minimum::<3>::new();
 
         assert_eq!(min.next(&bar(4.0)), 4.0);
         assert_eq!(min.next(&bar(4.0)), 4.0);
@@ -162,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut min = Minimum::new(10).unwrap();
+        let mut min = Minimum::<10>::new();
 
         assert_eq!(min.next(5.0), 5.0);
         assert_eq!(min.next(7.0), 5.0);
@@ -178,7 +166,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let indicator = Minimum::new(10).unwrap();
+        let indicator = Minimum::<10>::new();
         assert_eq!(format!("{}", indicator), "MIN(10)");
     }
 }

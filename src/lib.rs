@@ -1,5 +1,3 @@
-#![feature(generic_const_exprs)]
-
 //! ta is a Rust library for technical analysis. It provides number of technical indicators
 //! that can be used to build trading strategies for stock markets, futures, forex, cryptocurrencies, etc.
 //!
@@ -60,8 +58,8 @@ mod test_helper;
 mod helpers;
 
 pub mod errors;
-pub mod indicators;
 pub mod generic_indicators;
+pub mod indicators;
 
 mod traits;
 pub use crate::traits::*;

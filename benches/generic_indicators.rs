@@ -1,4 +1,4 @@
-use bencher::{benchmark_group, benchmark_main, Bencher, black_box};
+use bencher::{benchmark_group, benchmark_main, black_box, Bencher};
 use rand::Rng;
 use ta::generic_indicators::{
     AverageTrueRange, BollingerBands, ChandelierExit, CommodityChannelIndex, EfficiencyRatio,

@@ -38,6 +38,12 @@ name = "indicators"
 path = "benches/indicators.rs"
 harness = false
 
+[[bench]]
+name = "generic_indicators"
+path = "benches/generic_indicators.rs"
+harness = false
+
+
 [[example]]
 name = "ema_serde"
 path = "examples/ema_serde.rs"

@@ -1,6 +1,5 @@
 use std::fmt;
 
-use crate::errors::{Result, TaError};
 use crate::traits::{Close, Next, Period, Reset};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -24,10 +23,10 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```
-/// use ta::indicators::RateOfChange;
+/// use ta::generic_indicators::RateOfChange;
 /// use ta::Next;
 ///
-/// let mut roc = RateOfChange::new(2).unwrap();
+/// let mut roc = RateOfChange::<2>::new();
 /// assert_eq!(roc.next(10.0), 0.0);            //  0
 /// assert_eq!(roc.next(9.7).round(), -3.0);    //  (9.7 - 10) / 10  * 100 = -3
 /// assert_eq!(roc.next(20.0).round(), 100.0);  //  (20 - 10)  / 10  * 100 = 100
@@ -41,38 +40,33 @@ use serde::{Deserialize, Serialize};
 #[doc(alias = "ROC")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct RateOfChange {
-    period: usize,
+pub struct RateOfChange<const N: usize = 9> {
     index: usize,
     count: usize,
-    deque: Box<[f64]>,
+    deque: [f64; N],
 }
 
-impl RateOfChange {
-    pub fn new(period: usize) -> Result<Self> {
-        match period {
-            0 => Err(TaError::InvalidParameter),
-            _ => Ok(Self {
-                period,
-                index: 0,
-                count: 0,
-                deque: vec![0.0; period].into_boxed_slice(),
-            }),
+impl<const N: usize> RateOfChange<N> {
+    pub fn new() -> Self {
+        Self {
+            index: 0,
+            count: 0,
+            deque: [0.0; N],
         }
     }
 }
 
-impl Period for RateOfChange {
+impl<const N: usize> Period for RateOfChange<N> {
     fn period(&self) -> usize {
-        self.period
+        N
     }
 }
 
-impl Next<f64> for RateOfChange {
+impl<const N: usize> Next<f64> for RateOfChange<N> {
     type Output = f64;
 
     fn next(&mut self, input: f64) -> f64 {
-        let previous = if self.count > self.period {
+        let previous = if self.count > N {
             self.deque[self.index]
         } else {
             self.count += 1;
@@ -84,7 +78,7 @@ impl Next<f64> for RateOfChange {
         };
         self.deque[self.index] = input;
 
-        self.index = if self.index + 1 < self.period {
+        self.index = if self.index + 1 < N {
             self.index + 1
         } else {
             0
@@ -94,7 +88,7 @@ impl Next<f64> for RateOfChange {
     }
 }
 
-impl<T: Close> Next<&T> for RateOfChange {
+impl<T: Close, const N: usize> Next<&T> for RateOfChange<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> f64 {
@@ -104,21 +98,21 @@ impl<T: Close> Next<&T> for RateOfChange {
 
 impl Default for RateOfChange {
     fn default() -> Self {
-        Self::new(9).unwrap()
+        Self::new()
     }
 }
 
-impl fmt::Display for RateOfChange {
+impl<const N: usize> fmt::Display for RateOfChange<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ROC({})", self.period)
+        write!(f, "ROC({})", N)
     }
 }
 
-impl Reset for RateOfChange {
+impl<const N: usize> Reset for RateOfChange<N> {
     fn reset(&mut self) {
         self.index = 0;
         self.count = 0;
-        for i in 0..self.period {
+        for i in 0..N {
             self.deque[i] = 0.0;
         }
     }
@@ -132,15 +126,8 @@ mod tests {
     test_indicator!(RateOfChange);
 
     #[test]
-    fn test_new() {
-        assert!(RateOfChange::new(0).is_err());
-        assert!(RateOfChange::new(1).is_ok());
-        assert!(RateOfChange::new(100_000).is_ok());
-    }
-
-    #[test]
     fn test_next_f64() {
-        let mut roc = RateOfChange::new(3).unwrap();
+        let mut roc = RateOfChange::<3>::new();
 
         assert_eq!(round(roc.next(10.0)), 0.0);
         assert_eq!(round(roc.next(10.4)), 4.0);
@@ -156,7 +143,7 @@ mod tests {
             Bar::new().close(close)
         }
 
-        let mut roc = RateOfChange::new(3).unwrap();
+        let mut roc = RateOfChange::<2>::new();
 
         assert_eq!(round(roc.next(&bar(10.0))), 0.0);
         assert_eq!(round(roc.next(&bar(10.4))), 4.0);
@@ -165,7 +152,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut roc = RateOfChange::new(3).unwrap();
+        let mut roc = RateOfChange::<3>::new();
 
         roc.next(12.3);
         roc.next(15.0);

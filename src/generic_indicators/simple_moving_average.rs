@@ -64,7 +64,7 @@ impl<const N: usize> SimpleMovingAverage<N> {
             index: 0,
             count: 0,
             sum: 0.0,
-            deque: [0.0; N]
+            deque: [0.0; N],
         }
     }
 }

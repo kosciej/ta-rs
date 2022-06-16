@@ -3,8 +3,7 @@ use std::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::errors::Result;
-use crate::indicators::{MeanAbsoluteDeviation, SimpleMovingAverage};
+use crate::generic_indicators::{MeanAbsoluteDeviation, SimpleMovingAverage};
 use crate::{Close, High, Low, Next, Period, Reset};
 
 /// Commodity Channel Index (CCI)
@@ -30,27 +29,27 @@ use crate::{Close, High, Low, Next, Period, Reset};
 ///
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct CommodityChannelIndex {
-    sma: SimpleMovingAverage,
-    mad: MeanAbsoluteDeviation,
+pub struct CommodityChannelIndex<const N: usize = 20> {
+    sma: SimpleMovingAverage<N>,
+    mad: MeanAbsoluteDeviation<N>,
 }
 
-impl CommodityChannelIndex {
-    pub fn new(period: usize) -> Result<Self> {
-        Ok(Self {
-            sma: SimpleMovingAverage::new(period)?,
-            mad: MeanAbsoluteDeviation::new(period)?,
-        })
+impl<const N: usize> CommodityChannelIndex<N> {
+    pub fn new() -> Self {
+        Self {
+            sma: SimpleMovingAverage::new(),
+            mad: MeanAbsoluteDeviation::new(),
+        }
     }
 }
 
-impl Period for CommodityChannelIndex {
+impl<const N: usize> Period for CommodityChannelIndex<N> {
     fn period(&self) -> usize {
         self.sma.period()
     }
 }
 
-impl<T: Close + High + Low> Next<&T> for CommodityChannelIndex {
+impl<T: Close + High + Low, const N: usize> Next<&T> for CommodityChannelIndex<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -66,22 +65,22 @@ impl<T: Close + High + Low> Next<&T> for CommodityChannelIndex {
     }
 }
 
-impl Reset for CommodityChannelIndex {
+impl<const N: usize> Reset for CommodityChannelIndex<N> {
     fn reset(&mut self) {
         self.sma.reset();
         self.mad.reset();
     }
 }
 
-impl Default for CommodityChannelIndex {
+impl Default for CommodityChannelIndex<20> {
     fn default() -> Self {
-        Self::new(20).unwrap()
+        CommodityChannelIndex::new()
     }
 }
 
-impl fmt::Display for CommodityChannelIndex {
+impl<const N: usize> fmt::Display for CommodityChannelIndex<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CCI({})", self.sma.period())
+        write!(f, "CCI({})", N)
     }
 }
 
@@ -91,14 +90,8 @@ mod tests {
     use crate::test_helper::*;
 
     #[test]
-    fn test_new() {
-        assert!(CommodityChannelIndex::new(0).is_err());
-        assert!(CommodityChannelIndex::new(1).is_ok());
-    }
-
-    #[test]
     fn test_next_bar() {
-        let mut cci = CommodityChannelIndex::new(5).unwrap();
+        let mut cci = CommodityChannelIndex::<5>::new();
 
         let bar1 = Bar::new().high(2).low(1).close(1.5);
         assert_eq!(round(cci.next(&bar1)), 0.0);
@@ -121,7 +114,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut cci = CommodityChannelIndex::new(5).unwrap();
+        let mut cci = CommodityChannelIndex::<5>::new();
 
         let bar1 = Bar::new().high(2).low(1).close(1.5);
         let bar2 = Bar::new().high(5).low(3).close(4);
@@ -142,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let indicator = CommodityChannelIndex::new(10).unwrap();
+        let indicator = CommodityChannelIndex::<10>::new();
         assert_eq!(format!("{}", indicator), "CCI(10)");
     }
 }

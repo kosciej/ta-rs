@@ -63,10 +63,10 @@ pub struct ExponentialMovingAverage<const N: usize = 9> {
 impl<const N: usize> ExponentialMovingAverage<N> {
     pub fn new() -> Self {
         Self {
-                k: 2.0 / (N + 1) as f64,
-                current: 0.0,
-                is_new: true,
-            }
+            k: 2.0 / (N + 1) as f64,
+            current: 0.0,
+            is_new: true,
+        }
     }
 }
 

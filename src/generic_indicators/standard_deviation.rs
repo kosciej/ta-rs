@@ -50,14 +50,14 @@ pub struct StandardDeviation<const N: usize = 9> {
 
 impl<const N: usize> StandardDeviation<N> {
     pub fn new() -> Self {
-            Self {
-                index: 0,
-                count: 0,
-                m: 0.0,
-                m2: 0.0,
-                deque: [0.0; N],
-            }
+        Self {
+            index: 0,
+            count: 0,
+            m: 0.0,
+            m2: 0.0,
+            deque: [0.0; N],
         }
+    }
 
     pub(super) fn mean(&self) -> f64 {
         self.m
@@ -142,7 +142,6 @@ mod tests {
     use crate::test_helper::*;
 
     test_indicator!(StandardDeviation);
-
 
     #[test]
     fn test_next() {

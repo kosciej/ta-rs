@@ -3,7 +3,6 @@ use std::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::errors::{Result, TaError};
 use crate::{Close, Next, Period, Reset};
 
 /// Mean Absolute Deviation (MAD)
@@ -29,40 +28,35 @@ use crate::{Close, Next, Period, Reset};
 ///
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct MeanAbsoluteDeviation {
-    period: usize,
+pub struct MeanAbsoluteDeviation<const N: usize = 9> {
     index: usize,
     count: usize,
     sum: f64,
-    deque: Box<[f64]>,
+    deque: [f64; N],
 }
 
-impl MeanAbsoluteDeviation {
-    pub fn new(period: usize) -> Result<Self> {
-        match period {
-            0 => Err(TaError::InvalidParameter),
-            _ => Ok(Self {
-                period,
-                index: 0,
-                count: 0,
-                sum: 0.0,
-                deque: vec![0.0; period].into_boxed_slice(),
-            }),
+impl<const N: usize> MeanAbsoluteDeviation<N> {
+    pub fn new() -> Self {
+        Self {
+            index: 0,
+            count: 0,
+            sum: 0.0,
+            deque: [0.0; N],
         }
     }
 }
 
-impl Period for MeanAbsoluteDeviation {
+impl<const N: usize> Period for MeanAbsoluteDeviation<N> {
     fn period(&self) -> usize {
-        self.period
+        N
     }
 }
 
-impl Next<f64> for MeanAbsoluteDeviation {
+impl<const N: usize> Next<f64> for MeanAbsoluteDeviation<N> {
     type Output = f64;
 
     fn next(&mut self, input: f64) -> Self::Output {
-        self.sum = if self.count < self.period {
+        self.sum = if self.count < N {
             self.count = self.count + 1;
             self.sum + input
         } else {
@@ -70,7 +64,7 @@ impl Next<f64> for MeanAbsoluteDeviation {
         };
 
         self.deque[self.index] = input;
-        self.index = if self.index + 1 < self.period {
+        self.index = if self.index + 1 < N {
             self.index + 1
         } else {
             0
@@ -86,7 +80,7 @@ impl Next<f64> for MeanAbsoluteDeviation {
     }
 }
 
-impl<T: Close> Next<&T> for MeanAbsoluteDeviation {
+impl<T: Close, const N: usize> Next<&T> for MeanAbsoluteDeviation<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -94,12 +88,12 @@ impl<T: Close> Next<&T> for MeanAbsoluteDeviation {
     }
 }
 
-impl Reset for MeanAbsoluteDeviation {
+impl<const N: usize> Reset for MeanAbsoluteDeviation<N> {
     fn reset(&mut self) {
         self.index = 0;
         self.count = 0;
         self.sum = 0.0;
-        for i in 0..self.period {
+        for i in 0..N {
             self.deque[i] = 0.0;
         }
     }
@@ -107,13 +101,13 @@ impl Reset for MeanAbsoluteDeviation {
 
 impl Default for MeanAbsoluteDeviation {
     fn default() -> Self {
-        Self::new(9).unwrap()
+        Self::new()
     }
 }
 
-impl fmt::Display for MeanAbsoluteDeviation {
+impl<const N: usize> fmt::Display for MeanAbsoluteDeviation<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "MAD({})", self.period)
+        write!(f, "MAD({})", N)
     }
 }
 
@@ -125,14 +119,8 @@ mod tests {
     test_indicator!(MeanAbsoluteDeviation);
 
     #[test]
-    fn test_new() {
-        assert!(MeanAbsoluteDeviation::new(0).is_err());
-        assert!(MeanAbsoluteDeviation::new(1).is_ok());
-    }
-
-    #[test]
     fn test_next() {
-        let mut mad = MeanAbsoluteDeviation::new(5).unwrap();
+        let mut mad = MeanAbsoluteDeviation::<5>::new();
 
         assert_eq!(round(mad.next(1.5)), 0.0);
         assert_eq!(round(mad.next(4.0)), 1.25);
@@ -144,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut mad = MeanAbsoluteDeviation::new(5).unwrap();
+        let mut mad = MeanAbsoluteDeviation::<5>::new();
 
         assert_eq!(round(mad.next(1.5)), 0.0);
         assert_eq!(round(mad.next(4.0)), 1.25);
@@ -162,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let indicator = MeanAbsoluteDeviation::new(10).unwrap();
+        let indicator = MeanAbsoluteDeviation::<10>::new();
         assert_eq!(format!("{}", indicator), "MAD(10)");
     }
 }

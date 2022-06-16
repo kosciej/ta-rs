@@ -1,6 +1,5 @@
 use std::fmt;
 
-use crate::errors::{Result, TaError};
 use crate::{Close, High, Low, Next, Period, Reset, Volume};
 
 #[cfg(feature = "serde")]
@@ -35,10 +34,10 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```
-/// use ta::indicators::MoneyFlowIndex;
+/// use ta::generic_indicators::MoneyFlowIndex;
 /// use ta::{Next, DataItem};
 ///
-/// let mut mfi = MoneyFlowIndex::new(3).unwrap();
+/// let mut mfi = MoneyFlowIndex::<3>::new();
 /// let di = DataItem::builder()
 ///             .high(3.0)
 ///             .low(1.0)
@@ -56,52 +55,47 @@ use serde::{Deserialize, Serialize};
 #[doc(alias = "MFI")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct MoneyFlowIndex {
-    period: usize,
+pub struct MoneyFlowIndex<const N: usize = 14> {
     index: usize,
     count: usize,
     previous_typical_price: f64,
     total_positive_money_flow: f64,
     total_negative_money_flow: f64,
-    deque: Box<[f64]>,
+    deque: [f64; N],
 }
 
-impl MoneyFlowIndex {
-    pub fn new(period: usize) -> Result<Self> {
-        match period {
-            0 => Err(TaError::InvalidParameter),
-            _ => Ok(Self {
-                period,
-                index: 0,
-                count: 0,
-                previous_typical_price: 0.0,
-                total_positive_money_flow: 0.0,
-                total_negative_money_flow: 0.0,
-                deque: vec![0.0; period].into_boxed_slice(),
-            }),
+impl<const N: usize> MoneyFlowIndex<N> {
+    pub fn new() -> Self {
+        Self {
+            index: 0,
+            count: 0,
+            previous_typical_price: 0.0,
+            total_positive_money_flow: 0.0,
+            total_negative_money_flow: 0.0,
+            deque: [0.0; N],
         }
     }
 }
 
-impl Period for MoneyFlowIndex {
+impl<const N: usize> Period for MoneyFlowIndex<N> {
     fn period(&self) -> usize {
-        self.period
+        N
     }
 }
 
-impl<T: High + Low + Close + Volume> Next<&T> for MoneyFlowIndex {
+impl<T: High + Low + Close + Volume, const N: usize> Next<&T> for MoneyFlowIndex<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> f64 {
         let tp = (input.close() + input.high() + input.low()) / 3.0;
 
-        self.index = if self.index + 1 < self.period {
+        self.index = if self.index + 1 < N {
             self.index + 1
         } else {
             0
         };
 
-        if self.count < self.period {
+        if self.count < N {
             self.count = self.count + 1;
             if self.count == 1 {
                 self.previous_typical_price = tp;
@@ -137,24 +131,24 @@ impl<T: High + Low + Close + Volume> Next<&T> for MoneyFlowIndex {
 
 impl Default for MoneyFlowIndex {
     fn default() -> Self {
-        Self::new(14).unwrap()
+        Self::new()
     }
 }
 
-impl fmt::Display for MoneyFlowIndex {
+impl<const N: usize> fmt::Display for MoneyFlowIndex<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "MFI({})", self.period)
+        write!(f, "MFI({})", N)
     }
 }
 
-impl Reset for MoneyFlowIndex {
+impl<const N: usize> Reset for MoneyFlowIndex<N> {
     fn reset(&mut self) {
         self.index = 0;
         self.count = 0;
         self.previous_typical_price = 0.0;
         self.total_positive_money_flow = 0.0;
         self.total_negative_money_flow = 0.0;
-        for i in 0..self.period {
+        for i in 0..N {
             self.deque[i] = 0.0;
         }
     }
@@ -166,14 +160,8 @@ mod tests {
     use crate::test_helper::*;
 
     #[test]
-    fn test_new() {
-        assert!(MoneyFlowIndex::new(0).is_err());
-        assert!(MoneyFlowIndex::new(1).is_ok());
-    }
-
-    #[test]
     fn test_next_bar() {
-        let mut mfi = MoneyFlowIndex::new(3).unwrap();
+        let mut mfi = MoneyFlowIndex::<3>::new();
 
         let bar1 = Bar::new().high(3).low(1).close(2).volume(500.0);
         assert_eq!(round(mfi.next(&bar1)), 50.0);
@@ -202,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut mfi = MoneyFlowIndex::new(3).unwrap();
+        let mut mfi = MoneyFlowIndex::<3>::new();
 
         let bar1 = Bar::new().high(3).low(1).close(2).volume(500.0);
         let bar2 = Bar::new().high(2.3).low(2.0).close(2.3).volume(1000.0);
@@ -223,7 +211,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let mfi = MoneyFlowIndex::new(10).unwrap();
+        let mfi = MoneyFlowIndex::<10>::new();
         assert_eq!(format!("{}", mfi), "MFI(10)");
     }
 }

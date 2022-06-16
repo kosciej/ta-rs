@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::errors::Result;
-use crate::indicators::ExponentialMovingAverage as Ema;
+use crate::generic_indicators::ExponentialMovingAverage as Ema;
 use crate::{Close, Next, Period, Reset};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -31,10 +30,10 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```
-/// use ta::indicators::PercentagePriceOscillator as Ppo;
+/// use ta::generic_indicators::PercentagePriceOscillator as Ppo;
 /// use ta::Next;
 ///
-/// let mut ppo = Ppo::new(3, 6, 4).unwrap();
+/// let mut ppo = Ppo::<3,6,4>::new();
 ///
 /// assert_eq!(round(ppo.next(2.0).into()), (0.0, 0.0, 0.0));
 /// assert_eq!(round(ppo.next(3.0).into()), (9.38, 3.75, 5.63));
@@ -53,19 +52,25 @@ use serde::{Deserialize, Serialize};
 #[doc(alias = "PPO")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct PercentagePriceOscillator {
-    fast_ema: Ema,
-    slow_ema: Ema,
-    signal_ema: Ema,
+pub struct PercentagePriceOscillator<
+    const FAST: usize = 12,
+    const SLOW: usize = 26,
+    const SIGNAL: usize = 9,
+> {
+    fast_ema: Ema<FAST>,
+    slow_ema: Ema<SLOW>,
+    signal_ema: Ema<SIGNAL>,
 }
 
-impl PercentagePriceOscillator {
-    pub fn new(fast_period: usize, slow_period: usize, signal_period: usize) -> Result<Self> {
-        Ok(PercentagePriceOscillator {
-            fast_ema: Ema::new(fast_period)?,
-            slow_ema: Ema::new(slow_period)?,
-            signal_ema: Ema::new(signal_period)?,
-        })
+impl<const FAST: usize, const SLOW: usize, const SIGNAL: usize>
+    PercentagePriceOscillator<FAST, SLOW, SIGNAL>
+{
+    pub fn new() -> Self {
+        PercentagePriceOscillator {
+            fast_ema: Ema::new(),
+            slow_ema: Ema::new(),
+            signal_ema: Ema::new(),
+        }
     }
 }
 
@@ -82,7 +87,9 @@ impl From<PercentagePriceOscillatorOutput> for (f64, f64, f64) {
     }
 }
 
-impl Next<f64> for PercentagePriceOscillator {
+impl<const FAST: usize, const SLOW: usize, const SIGNAL: usize> Next<f64>
+    for PercentagePriceOscillator<FAST, SLOW, SIGNAL>
+{
     type Output = PercentagePriceOscillatorOutput;
 
     fn next(&mut self, input: f64) -> Self::Output {
@@ -101,7 +108,9 @@ impl Next<f64> for PercentagePriceOscillator {
     }
 }
 
-impl<T: Close> Next<&T> for PercentagePriceOscillator {
+impl<T: Close, const FAST: usize, const SLOW: usize, const SIGNAL: usize> Next<&T>
+    for PercentagePriceOscillator<FAST, SLOW, SIGNAL>
+{
     type Output = PercentagePriceOscillatorOutput;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -109,7 +118,9 @@ impl<T: Close> Next<&T> for PercentagePriceOscillator {
     }
 }
 
-impl Reset for PercentagePriceOscillator {
+impl<const FAST: usize, const SLOW: usize, const SIGNAL: usize> Reset
+    for PercentagePriceOscillator<FAST, SLOW, SIGNAL>
+{
     fn reset(&mut self) {
         self.fast_ema.reset();
         self.slow_ema.reset();
@@ -119,11 +130,13 @@ impl Reset for PercentagePriceOscillator {
 
 impl Default for PercentagePriceOscillator {
     fn default() -> Self {
-        Self::new(12, 26, 9).unwrap()
+        Self::new()
     }
 }
 
-impl fmt::Display for PercentagePriceOscillator {
+impl<const FAST: usize, const SLOW: usize, const SIGNAL: usize> fmt::Display
+    for PercentagePriceOscillator<FAST, SLOW, SIGNAL>
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -139,9 +152,10 @@ impl fmt::Display for PercentagePriceOscillator {
 mod tests {
     use super::*;
     use crate::test_helper::*;
-    type Ppo = PercentagePriceOscillator;
+    type Ppo<const FAST: usize, const SLOW: usize, const SIGNAL: usize> =
+        PercentagePriceOscillator<FAST, SLOW, SIGNAL>;
 
-    test_indicator!(Ppo);
+    test_indicator!(PercentagePriceOscillator);
 
     fn round(nums: (f64, f64, f64)) -> (f64, f64, f64) {
         let n0 = (nums.0 * 100.0).round() / 100.0;
@@ -151,16 +165,8 @@ mod tests {
     }
 
     #[test]
-    fn test_new() {
-        assert!(Ppo::new(0, 1, 1).is_err());
-        assert!(Ppo::new(1, 0, 1).is_err());
-        assert!(Ppo::new(1, 1, 0).is_err());
-        assert!(Ppo::new(1, 1, 1).is_ok());
-    }
-
-    #[test]
     fn test_next() {
-        let mut ppo = Ppo::new(3, 6, 4).unwrap();
+        let mut ppo = Ppo::<3, 6, 4>::new();
 
         assert_eq!(round(ppo.next(2.0).into()), (0.0, 0.0, 0.0));
         assert_eq!(round(ppo.next(3.0).into()), (9.38, 3.75, 5.63));
@@ -172,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut ppo = Ppo::new(3, 6, 4).unwrap();
+        let mut ppo = Ppo::<3, 6, 4>::new();
 
         assert_eq!(round(ppo.next(2.0).into()), (0.0, 0.0, 0.0));
         assert_eq!(round(ppo.next(3.0).into()), (9.38, 3.75, 5.63));
@@ -190,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let indicator = Ppo::new(13, 30, 10).unwrap();
+        let indicator = Ppo::<13, 30, 10>::new();
         assert_eq!(format!("{}", indicator), "PPO(13, 30, 10)");
     }
 }

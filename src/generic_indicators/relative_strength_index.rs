@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::errors::Result;
-use crate::indicators::ExponentialMovingAverage as Ema;
+use crate::generic_indicators::ExponentialMovingAverage as Ema;
 use crate::{Close, Next, Period, Reset};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -54,10 +53,10 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```
-/// use ta::indicators::RelativeStrengthIndex;
+/// use ta::generic_indicators::RelativeStrengthIndex;
 /// use ta::Next;
 ///
-/// let mut rsi = RelativeStrengthIndex::new(3).unwrap();
+/// let mut rsi = RelativeStrengthIndex::<3>::new();
 /// assert_eq!(rsi.next(10.0), 50.0);
 /// assert_eq!(rsi.next(10.5).round(), 86.0);
 /// assert_eq!(rsi.next(10.0).round(), 35.0);
@@ -71,33 +70,31 @@ use serde::{Deserialize, Serialize};
 #[doc(alias = "RSI")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct RelativeStrengthIndex {
-    period: usize,
-    up_ema_indicator: Ema,
-    down_ema_indicator: Ema,
+pub struct RelativeStrengthIndex<const N: usize = 14> {
+    up_ema_indicator: Ema<N>,
+    down_ema_indicator: Ema<N>,
     prev_val: f64,
     is_new: bool,
 }
 
-impl RelativeStrengthIndex {
-    pub fn new(period: usize) -> Result<Self> {
-        Ok(Self {
-            period,
-            up_ema_indicator: Ema::new(period)?,
-            down_ema_indicator: Ema::new(period)?,
+impl<const N: usize> RelativeStrengthIndex<N> {
+    pub fn new() -> Self {
+        Self {
+            up_ema_indicator: Ema::new(),
+            down_ema_indicator: Ema::new(),
             prev_val: 0.0,
             is_new: true,
-        })
+        }
     }
 }
 
-impl Period for RelativeStrengthIndex {
+impl<const N: usize> Period for RelativeStrengthIndex<N> {
     fn period(&self) -> usize {
-        self.period
+        N
     }
 }
 
-impl Next<f64> for RelativeStrengthIndex {
+impl<const N: usize> Next<f64> for RelativeStrengthIndex<N> {
     type Output = f64;
 
     fn next(&mut self, input: f64) -> Self::Output {
@@ -124,7 +121,7 @@ impl Next<f64> for RelativeStrengthIndex {
     }
 }
 
-impl<T: Close> Next<&T> for RelativeStrengthIndex {
+impl<T: Close, const N: usize> Next<&T> for RelativeStrengthIndex<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -132,7 +129,7 @@ impl<T: Close> Next<&T> for RelativeStrengthIndex {
     }
 }
 
-impl Reset for RelativeStrengthIndex {
+impl<const N: usize> Reset for RelativeStrengthIndex<N> {
     fn reset(&mut self) {
         self.is_new = true;
         self.prev_val = 0.0;
@@ -143,13 +140,13 @@ impl Reset for RelativeStrengthIndex {
 
 impl Default for RelativeStrengthIndex {
     fn default() -> Self {
-        Self::new(14).unwrap()
+        Self::new()
     }
 }
 
-impl fmt::Display for RelativeStrengthIndex {
+impl<const N: usize> fmt::Display for RelativeStrengthIndex<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "RSI({})", self.period)
+        write!(f, "RSI({})", N)
     }
 }
 
@@ -161,14 +158,8 @@ mod tests {
     test_indicator!(RelativeStrengthIndex);
 
     #[test]
-    fn test_new() {
-        assert!(RelativeStrengthIndex::new(0).is_err());
-        assert!(RelativeStrengthIndex::new(1).is_ok());
-    }
-
-    #[test]
     fn test_next() {
-        let mut rsi = RelativeStrengthIndex::new(3).unwrap();
+        let mut rsi = RelativeStrengthIndex::<3>::new();
         assert_eq!(rsi.next(10.0), 50.0);
         assert_eq!(rsi.next(10.5).round(), 86.0);
         assert_eq!(rsi.next(10.0).round(), 35.0);
@@ -177,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut rsi = RelativeStrengthIndex::new(3).unwrap();
+        let mut rsi = RelativeStrengthIndex::<3>::new();
         assert_eq!(rsi.next(10.0), 50.0);
         assert_eq!(rsi.next(10.5).round(), 86.0);
 
@@ -193,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let rsi = RelativeStrengthIndex::new(16).unwrap();
+        let rsi = RelativeStrengthIndex::<16>::new();
         assert_eq!(format!("{}", rsi), "RSI(16)");
     }
 }

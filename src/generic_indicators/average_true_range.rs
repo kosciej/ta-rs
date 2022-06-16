@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 /// #[macro_use] extern crate assert_approx_eq;
 ///
 /// use ta::{Next, DataItem};
-/// use ta::indicators::AverageTrueRange;
+/// use ta::generic_indicators::AverageTrueRange;
 ///
 /// fn main() {
 ///     let data = vec![
@@ -42,7 +42,7 @@ use serde::{Deserialize, Serialize};
 ///         (10.1  , 10.7, 9.4, 9.7  , 1.125),  // tr = high - low = 10.7 - 9.4 = 1.3
 ///         (9.1   , 9.2 , 8.1, 8.4  , 1.3625), // tr = prev_close - low = 9.7 - 8.1 = 1.6
 ///     ];
-///     let mut indicator = AverageTrueRange::new(3).unwrap();
+///     let mut indicator = AverageTrueRange::<3>::new();
 ///
 ///     for (open, high, low, close, atr) in data {
 ///         let di = DataItem::builder()
@@ -67,7 +67,7 @@ impl<const N: usize> AverageTrueRange<N> {
     pub fn new() -> Self {
         Self {
             true_range: TrueRange::new(),
-            ema: ExponentialMovingAverage::<N>::new(),
+            ema: ExponentialMovingAverage::new(),
         }
     }
 }

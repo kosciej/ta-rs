@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::errors::Result;
-use crate::indicators::ExponentialMovingAverage as Ema;
+use crate::generic_indicators::ExponentialMovingAverage as Ema;
 use crate::{Close, Next, Period, Reset};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -31,10 +30,10 @@ use serde::{Deserialize, Serialize};
 /// # Example
 ///
 /// ```
-/// use ta::indicators::MovingAverageConvergenceDivergence as Macd;
+/// use ta::generic_indicators::MovingAverageConvergenceDivergence as Macd;
 /// use ta::Next;
 ///
-/// let mut macd = Macd::new(3, 6, 4).unwrap();
+/// let mut macd = Macd::<3,6,4>::new();
 ///
 /// assert_eq!(round(macd.next(2.0).into()), (0.0, 0.0, 0.0));
 /// assert_eq!(round(macd.next(3.0).into()), (0.21, 0.09, 0.13));
@@ -53,19 +52,25 @@ use serde::{Deserialize, Serialize};
 #[doc(alias = "MACD")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct MovingAverageConvergenceDivergence {
-    fast_ema: Ema,
-    slow_ema: Ema,
-    signal_ema: Ema,
+pub struct MovingAverageConvergenceDivergence<
+    const FAST: usize = 12,
+    const SLOW: usize = 26,
+    const SIGNAL: usize = 9,
+> {
+    fast_ema: Ema<FAST>,
+    slow_ema: Ema<SLOW>,
+    signal_ema: Ema<SIGNAL>,
 }
 
-impl MovingAverageConvergenceDivergence {
-    pub fn new(fast_period: usize, slow_period: usize, signal_period: usize) -> Result<Self> {
-        Ok(Self {
-            fast_ema: Ema::new(fast_period)?,
-            slow_ema: Ema::new(slow_period)?,
-            signal_ema: Ema::new(signal_period)?,
-        })
+impl<const FAST: usize, const SLOW: usize, const SIGNAL: usize>
+    MovingAverageConvergenceDivergence<FAST, SLOW, SIGNAL>
+{
+    pub fn new() -> Self {
+        Self {
+            fast_ema: Ema::new(),
+            slow_ema: Ema::new(),
+            signal_ema: Ema::new(),
+        }
     }
 }
 
@@ -82,7 +87,9 @@ impl From<MovingAverageConvergenceDivergenceOutput> for (f64, f64, f64) {
     }
 }
 
-impl Next<f64> for MovingAverageConvergenceDivergence {
+impl<const FAST: usize, const SLOW: usize, const SIGNAL: usize> Next<f64>
+    for MovingAverageConvergenceDivergence<FAST, SLOW, SIGNAL>
+{
     type Output = MovingAverageConvergenceDivergenceOutput;
 
     fn next(&mut self, input: f64) -> Self::Output {
@@ -101,7 +108,9 @@ impl Next<f64> for MovingAverageConvergenceDivergence {
     }
 }
 
-impl<T: Close> Next<&T> for MovingAverageConvergenceDivergence {
+impl<T: Close, const FAST: usize, const SLOW: usize, const SIGNAL: usize> Next<&T>
+    for MovingAverageConvergenceDivergence<FAST, SLOW, SIGNAL>
+{
     type Output = MovingAverageConvergenceDivergenceOutput;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -109,7 +118,9 @@ impl<T: Close> Next<&T> for MovingAverageConvergenceDivergence {
     }
 }
 
-impl Reset for MovingAverageConvergenceDivergence {
+impl<const FAST: usize, const SLOW: usize, const SIGNAL: usize> Reset
+    for MovingAverageConvergenceDivergence<FAST, SLOW, SIGNAL>
+{
     fn reset(&mut self) {
         self.fast_ema.reset();
         self.slow_ema.reset();
@@ -119,11 +130,13 @@ impl Reset for MovingAverageConvergenceDivergence {
 
 impl Default for MovingAverageConvergenceDivergence {
     fn default() -> Self {
-        Self::new(12, 26, 9).unwrap()
+        Self::new()
     }
 }
 
-impl fmt::Display for MovingAverageConvergenceDivergence {
+impl<const FAST: usize, const SLOW: usize, const SIGNAL: usize> fmt::Display
+    for MovingAverageConvergenceDivergence<FAST, SLOW, SIGNAL>
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -139,9 +152,10 @@ impl fmt::Display for MovingAverageConvergenceDivergence {
 mod tests {
     use super::*;
     use crate::test_helper::*;
-    type Macd = MovingAverageConvergenceDivergence;
+    type Macd<const F: usize, const S: usize, const SIG: usize> =
+        MovingAverageConvergenceDivergence<F, S, SIG>;
 
-    test_indicator!(Macd);
+    test_indicator!(MovingAverageConvergenceDivergence);
 
     fn round(nums: (f64, f64, f64)) -> (f64, f64, f64) {
         let n0 = (nums.0 * 100.0).round() / 100.0;
@@ -151,16 +165,8 @@ mod tests {
     }
 
     #[test]
-    fn test_new() {
-        assert!(Macd::new(0, 1, 1).is_err());
-        assert!(Macd::new(1, 0, 1).is_err());
-        assert!(Macd::new(1, 1, 0).is_err());
-        assert!(Macd::new(1, 1, 1).is_ok());
-    }
-
-    #[test]
     fn test_macd() {
-        let mut macd = Macd::new(3, 6, 4).unwrap();
+        let mut macd = Macd::<3, 6, 4>::new();
 
         assert_eq!(round(macd.next(2.0).into()), (0.0, 0.0, 0.0));
         assert_eq!(round(macd.next(3.0).into()), (0.21, 0.09, 0.13));
@@ -172,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut macd = Macd::new(3, 6, 4).unwrap();
+        let mut macd = Macd::<3, 6, 4>::new();
 
         assert_eq!(round(macd.next(2.0).into()), (0.0, 0.0, 0.0));
         assert_eq!(round(macd.next(3.0).into()), (0.21, 0.09, 0.13));
@@ -190,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let indicator = Macd::new(13, 30, 10).unwrap();
+        let indicator = Macd::<13, 30, 10>::new();
         assert_eq!(format!("{}", indicator), "MACD(13, 30, 10)");
     }
 }

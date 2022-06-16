@@ -63,7 +63,7 @@ impl<const N: usize> BollingerBands<N> {
     pub fn new(multiplier: f64) -> Self {
         Self {
             multiplier,
-            sd: Sd::<N>::new(),
+            sd: Sd::new(),
         }
     }
 
