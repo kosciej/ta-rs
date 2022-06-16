@@ -3,7 +3,7 @@ use ta::DataItem;
 use ta::Next;
 
 fn main() {
-    let mut ema = Ema::new(9).unwrap();
+    let mut ema = Ema::<9>::new();
     let mut reader = csv::Reader::from_path("./examples/data/AMZN.csv").unwrap();
 
     for record in reader.deserialize() {

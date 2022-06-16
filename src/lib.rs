@@ -1,3 +1,4 @@
+
 //! ta is a Rust library for technical analysis. It provides number of technical indicators
 //! that can be used to build trading strategies for stock markets, futures, forex, cryptocurrencies, etc.
 //!
@@ -16,7 +17,7 @@
 //! use ta::Next;
 //!
 //! // it can return an error, when an invalid period is passed (e.g. 0)
-//! let mut ema = ExponentialMovingAverage::new(3).unwrap();
+//! let mut ema = ExponentialMovingAverage::<3>::new();
 //!
 //! assert_eq!(ema.next(2.0), 2.0);
 //! assert_eq!(ema.next(5.0), 3.5);
@@ -58,7 +59,6 @@ mod test_helper;
 mod helpers;
 
 pub mod errors;
-pub mod generic_indicators;
 pub mod indicators;
 
 mod traits;

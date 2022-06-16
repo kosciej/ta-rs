@@ -1,6 +1,5 @@
 use std::fmt;
 
-use crate::errors::Result;
 use crate::indicators::{Maximum, Minimum};
 use crate::{Close, High, Low, Next, Period, Reset};
 #[cfg(feature = "serde")]
@@ -33,7 +32,7 @@ use serde::{Deserialize, Serialize};
 /// use ta::indicators::FastStochastic;
 /// use ta::Next;
 ///
-/// let mut stoch = FastStochastic::new(5).unwrap();
+/// let mut stoch = FastStochastic::<5>::new();
 /// assert_eq!(stoch.next(20.0), 50.0);
 /// assert_eq!(stoch.next(30.0), 100.0);
 /// assert_eq!(stoch.next(40.0), 100.0);
@@ -42,29 +41,27 @@ use serde::{Deserialize, Serialize};
 /// ```
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct FastStochastic {
-    period: usize,
-    minimum: Minimum,
-    maximum: Maximum,
+pub struct FastStochastic<const N: usize = 14> {
+    minimum: Minimum<N>,
+    maximum: Maximum<N>,
 }
 
-impl FastStochastic {
-    pub fn new(period: usize) -> Result<Self> {
-        Ok(Self {
-            period,
-            minimum: Minimum::new(period)?,
-            maximum: Maximum::new(period)?,
-        })
+impl<const N: usize> FastStochastic<N> {
+    pub fn new() -> Self {
+        Self {
+            minimum: Minimum::new(),
+            maximum: Maximum::new(),
+        }
     }
 }
 
-impl Period for FastStochastic {
+impl<const N: usize> Period for FastStochastic<N> {
     fn period(&self) -> usize {
-        self.period
+        N
     }
 }
 
-impl Next<f64> for FastStochastic {
+impl<const N: usize> Next<f64> for FastStochastic<N> {
     type Output = f64;
 
     fn next(&mut self, input: f64) -> Self::Output {
@@ -81,7 +78,7 @@ impl Next<f64> for FastStochastic {
     }
 }
 
-impl<T: High + Low + Close> Next<&T> for FastStochastic {
+impl<T: High + Low + Close, const N: usize> Next<&T> for FastStochastic<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -98,22 +95,22 @@ impl<T: High + Low + Close> Next<&T> for FastStochastic {
     }
 }
 
-impl Reset for FastStochastic {
+impl<const N: usize> Reset for FastStochastic<N> {
     fn reset(&mut self) {
         self.minimum.reset();
         self.maximum.reset();
     }
 }
 
-impl Default for FastStochastic {
+impl Default for FastStochastic<14> {
     fn default() -> Self {
-        Self::new(14).unwrap()
+        Self::new()
     }
 }
 
-impl fmt::Display for FastStochastic {
+impl<const N: usize> fmt::Display for FastStochastic<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "FAST_STOCH({})", self.period)
+        write!(f, "FAST_STOCH({})", N)
     }
 }
 
@@ -125,14 +122,8 @@ mod tests {
     test_indicator!(FastStochastic);
 
     #[test]
-    fn test_new() {
-        assert!(FastStochastic::new(0).is_err());
-        assert!(FastStochastic::new(1).is_ok());
-    }
-
-    #[test]
     fn test_next_with_f64() {
-        let mut stoch = FastStochastic::new(3).unwrap();
+        let mut stoch = FastStochastic::<3>::new();
         assert_eq!(stoch.next(0.0), 50.0);
         assert_eq!(stoch.next(200.0), 100.0);
         assert_eq!(stoch.next(100.0), 50.0);
@@ -152,7 +143,7 @@ mod tests {
             (35.0, 25.0, 30.0, 75.0), // min = 15, max = 35
         ];
 
-        let mut stoch = FastStochastic::new(3).unwrap();
+        let mut stoch = FastStochastic::<3>::new();
 
         for (high, low, close, expected) in test_data {
             let input_bar = Bar::new().high(high).low(low).close(close);
@@ -162,7 +153,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut indicator = FastStochastic::new(10).unwrap();
+        let mut indicator = FastStochastic::<10>::new();
         assert_eq!(indicator.next(10.0), 50.0);
         assert_eq!(indicator.next(210.0), 100.0);
         assert_eq!(indicator.next(10.0), 0.0);
@@ -181,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let indicator = FastStochastic::new(21).unwrap();
+        let indicator = FastStochastic::<21>::new();
         assert_eq!(format!("{}", indicator), "FAST_STOCH(21)");
     }
 }

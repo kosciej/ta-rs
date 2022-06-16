@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::errors::Result;
-use crate::indicators::StandardDeviation as Sd;
+use super::StandardDeviation as Sd;
 use crate::{Close, Next, Period, Reset};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -27,7 +26,7 @@ use serde::{Deserialize, Serialize};
 /// use ta::indicators::{BollingerBands, BollingerBandsOutput};
 /// use ta::Next;
 ///
-/// let mut bb = BollingerBands::new(3, 2.0_f64).unwrap();
+/// let mut bb = BollingerBands::<3>::new(2.0_f64);
 ///
 /// let out_0 = bb.next(2.0);
 ///
@@ -48,10 +47,9 @@ use serde::{Deserialize, Serialize};
 #[doc(alias = "BB")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct BollingerBands {
-    period: usize,
+pub struct BollingerBands<const N: usize = 9> {
     multiplier: f64,
-    sd: Sd,
+    sd: Sd<N>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -61,13 +59,12 @@ pub struct BollingerBandsOutput {
     pub lower: f64,
 }
 
-impl BollingerBands {
-    pub fn new(period: usize, multiplier: f64) -> Result<Self> {
-        Ok(Self {
-            period,
+impl<const N: usize> BollingerBands<N> {
+    pub fn new(multiplier: f64) -> Self {
+        Self {
             multiplier,
-            sd: Sd::new(period)?,
-        })
+            sd: Sd::new(),
+        }
     }
 
     pub fn multiplier(&self) -> f64 {
@@ -75,13 +72,13 @@ impl BollingerBands {
     }
 }
 
-impl Period for BollingerBands {
+impl<const N: usize> Period for BollingerBands<N> {
     fn period(&self) -> usize {
-        self.period
+        N
     }
 }
 
-impl Next<f64> for BollingerBands {
+impl<const N: usize> Next<f64> for BollingerBands<N> {
     type Output = BollingerBandsOutput;
 
     fn next(&mut self, input: f64) -> Self::Output {
@@ -96,7 +93,7 @@ impl Next<f64> for BollingerBands {
     }
 }
 
-impl<T: Close> Next<&T> for BollingerBands {
+impl<T: Close, const N: usize> Next<&T> for BollingerBands<N> {
     type Output = BollingerBandsOutput;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -104,21 +101,21 @@ impl<T: Close> Next<&T> for BollingerBands {
     }
 }
 
-impl Reset for BollingerBands {
+impl<const N: usize> Reset for BollingerBands<N> {
     fn reset(&mut self) {
         self.sd.reset();
     }
 }
 
-impl Default for BollingerBands {
+impl Default for BollingerBands<9> {
     fn default() -> Self {
-        Self::new(9, 2_f64).unwrap()
+        BollingerBands::<9>::new(2_f64)
     }
 }
 
-impl fmt::Display for BollingerBands {
+impl<const N: usize> fmt::Display for BollingerBands<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "BB({}, {})", self.period, self.multiplier)
+        write!(f, "BB({}, {})", N, self.multiplier)
     }
 }
 
@@ -130,15 +127,8 @@ mod tests {
     test_indicator!(BollingerBands);
 
     #[test]
-    fn test_new() {
-        assert!(BollingerBands::new(0, 2_f64).is_err());
-        assert!(BollingerBands::new(1, 2_f64).is_ok());
-        assert!(BollingerBands::new(2, 2_f64).is_ok());
-    }
-
-    #[test]
     fn test_next() {
-        let mut bb = BollingerBands::new(3, 2.0_f64).unwrap();
+        let mut bb = BollingerBands::<3>::new(2.0_f64);
 
         let a = bb.next(2.0);
         let b = bb.next(5.0);
@@ -163,7 +153,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut bb = BollingerBands::new(5, 2.0_f64).unwrap();
+        let mut bb = BollingerBands::<5>::new(2.0_f64);
 
         let out = bb.next(3.0);
 
@@ -195,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let bb = BollingerBands::new(10, 3.0_f64).unwrap();
+        let bb = BollingerBands::<10>::new(3.0_f64);
         assert_eq!(format!("{}", bb), "BB(10, 3)");
     }
 }

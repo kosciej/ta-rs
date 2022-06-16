@@ -1,7 +1,6 @@
 use std::fmt;
 
-use crate::errors::Result;
-use crate::indicators::{ExponentialMovingAverage, TrueRange};
+use super::{ExponentialMovingAverage, TrueRange};
 use crate::{Close, High, Low, Next, Period, Reset};
 
 #[cfg(feature = "serde")]
@@ -43,7 +42,7 @@ use serde::{Deserialize, Serialize};
 ///         (10.1  , 10.7, 9.4, 9.7  , 1.125),  // tr = high - low = 10.7 - 9.4 = 1.3
 ///         (9.1   , 9.2 , 8.1, 8.4  , 1.3625), // tr = prev_close - low = 9.7 - 8.1 = 1.6
 ///     ];
-///     let mut indicator = AverageTrueRange::new(3).unwrap();
+///     let mut indicator = AverageTrueRange::<3>::new();
 ///
 ///     for (open, high, low, close, atr) in data {
 ///         let di = DataItem::builder()
@@ -59,27 +58,27 @@ use serde::{Deserialize, Serialize};
 #[doc(alias = "ATR")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct AverageTrueRange {
+pub struct AverageTrueRange<const N: usize = 14> {
     true_range: TrueRange,
-    ema: ExponentialMovingAverage,
+    ema: ExponentialMovingAverage<N>,
 }
 
-impl AverageTrueRange {
-    pub fn new(period: usize) -> Result<Self> {
-        Ok(Self {
+impl<const N: usize> AverageTrueRange<N> {
+    pub fn new() -> Self {
+        Self {
             true_range: TrueRange::new(),
-            ema: ExponentialMovingAverage::new(period)?,
-        })
+            ema: ExponentialMovingAverage::new(),
+        }
     }
 }
 
-impl Period for AverageTrueRange {
+impl<const N: usize> Period for AverageTrueRange<N> {
     fn period(&self) -> usize {
         self.ema.period()
     }
 }
 
-impl Next<f64> for AverageTrueRange {
+impl<const N: usize> Next<f64> for AverageTrueRange<N> {
     type Output = f64;
 
     fn next(&mut self, input: f64) -> Self::Output {
@@ -87,7 +86,7 @@ impl Next<f64> for AverageTrueRange {
     }
 }
 
-impl<T: High + Low + Close> Next<&T> for AverageTrueRange {
+impl<T: High + Low + Close, const N: usize> Next<&T> for AverageTrueRange<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> Self::Output {
@@ -95,20 +94,20 @@ impl<T: High + Low + Close> Next<&T> for AverageTrueRange {
     }
 }
 
-impl Reset for AverageTrueRange {
+impl<const N: usize> Reset for AverageTrueRange<N> {
     fn reset(&mut self) {
         self.true_range.reset();
         self.ema.reset();
     }
 }
 
-impl Default for AverageTrueRange {
+impl Default for AverageTrueRange<14> {
     fn default() -> Self {
-        Self::new(14).unwrap()
+        AverageTrueRange::<14>::new()
     }
 }
 
-impl fmt::Display for AverageTrueRange {
+impl<const N: usize> fmt::Display for AverageTrueRange<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ATR({})", self.ema.period())
     }
@@ -122,13 +121,8 @@ mod tests {
     test_indicator!(AverageTrueRange);
 
     #[test]
-    fn test_new() {
-        assert!(AverageTrueRange::new(0).is_err());
-        assert!(AverageTrueRange::new(1).is_ok());
-    }
-    #[test]
     fn test_next() {
-        let mut atr = AverageTrueRange::new(3).unwrap();
+        let mut atr = AverageTrueRange::<3>::new();
 
         let bar1 = Bar::new().high(10).low(7.5).close(9);
         let bar2 = Bar::new().high(11).low(9).close(9.5);
@@ -141,7 +135,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut atr = AverageTrueRange::new(9).unwrap();
+        let mut atr = AverageTrueRange::<3>::new();
 
         let bar1 = Bar::new().high(10).low(7.5).close(9);
         let bar2 = Bar::new().high(11).low(9).close(9.5);
@@ -161,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let indicator = AverageTrueRange::new(8).unwrap();
+        let indicator = AverageTrueRange::<8>::new();
         assert_eq!(format!("{}", indicator), "ATR(8)");
     }
 }

@@ -1,6 +1,5 @@
 use std::fmt;
 
-use crate::errors::{Result, TaError};
 use crate::traits::{Close, Next, Period, Reset};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -20,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// use ta::indicators::EfficiencyRatio;
 /// use ta::Next;
 ///
-/// let mut er = EfficiencyRatio::new(4).unwrap();
+/// let mut er = EfficiencyRatio::<4>::new();
 /// assert_eq!(er.next(10.0), 1.0);
 /// assert_eq!(er.next(13.0), 1.0);
 /// assert_eq!(er.next(12.0), 0.5);
@@ -32,38 +31,33 @@ use serde::{Deserialize, Serialize};
 #[doc(alias = "ER")]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Debug, Clone)]
-pub struct EfficiencyRatio {
-    period: usize,
+pub struct EfficiencyRatio<const N: usize = 14> {
     index: usize,
     count: usize,
-    deque: Box<[f64]>,
+    deque: [f64; N],
 }
 
-impl EfficiencyRatio {
-    pub fn new(period: usize) -> Result<Self> {
-        match period {
-            0 => Err(TaError::InvalidParameter),
-            _ => Ok(Self {
-                period,
-                index: 0,
-                count: 0,
-                deque: vec![0.0; period].into_boxed_slice(),
-            }),
+impl<const N: usize> EfficiencyRatio<N> {
+    pub fn new() -> Self {
+        Self {
+            index: 0,
+            count: 0,
+            deque: [0.0; N],
         }
     }
 }
 
-impl Period for EfficiencyRatio {
+impl<const N: usize> Period for EfficiencyRatio<N> {
     fn period(&self) -> usize {
-        self.period
+        N
     }
 }
 
-impl Next<f64> for EfficiencyRatio {
+impl<const N: usize> Next<f64> for EfficiencyRatio<N> {
     type Output = f64;
 
     fn next(&mut self, input: f64) -> f64 {
-        let first = if self.count >= self.period {
+        let first = if self.count >= N {
             self.deque[self.index]
         } else {
             self.count += 1;
@@ -71,7 +65,7 @@ impl Next<f64> for EfficiencyRatio {
         };
         self.deque[self.index] = input;
 
-        self.index = if self.index + 1 < self.period {
+        self.index = if self.index + 1 < N {
             self.index + 1
         } else {
             0
@@ -92,7 +86,7 @@ impl Next<f64> for EfficiencyRatio {
     }
 }
 
-impl<T: Close> Next<&T> for EfficiencyRatio {
+impl<T: Close, const N: usize> Next<&T> for EfficiencyRatio<N> {
     type Output = f64;
 
     fn next(&mut self, input: &T) -> f64 {
@@ -100,25 +94,25 @@ impl<T: Close> Next<&T> for EfficiencyRatio {
     }
 }
 
-impl Reset for EfficiencyRatio {
+impl<const N: usize> Reset for EfficiencyRatio<N> {
     fn reset(&mut self) {
         self.index = 0;
         self.count = 0;
-        for i in 0..self.period {
+        for i in 0..N {
             self.deque[i] = 0.0;
         }
     }
 }
 
-impl Default for EfficiencyRatio {
+impl Default for EfficiencyRatio<14> {
     fn default() -> Self {
-        Self::new(14).unwrap()
+        Self::new()
     }
 }
 
-impl fmt::Display for EfficiencyRatio {
+impl<const N: usize> fmt::Display for EfficiencyRatio<N> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "ER({})", self.period)
+        write!(f, "ER({})", N)
     }
 }
 
@@ -130,14 +124,8 @@ mod tests {
     test_indicator!(EfficiencyRatio);
 
     #[test]
-    fn test_new() {
-        assert!(EfficiencyRatio::new(0).is_err());
-        assert!(EfficiencyRatio::new(1).is_ok());
-    }
-
-    #[test]
     fn test_next() {
-        let mut er = EfficiencyRatio::new(3).unwrap();
+        let mut er = EfficiencyRatio::<3>::new();
 
         assert_eq!(round(er.next(3.0)), 1.0);
         assert_eq!(round(er.next(5.0)), 1.0);
@@ -151,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_reset() {
-        let mut er = EfficiencyRatio::new(3).unwrap();
+        let mut er = EfficiencyRatio::<3>::new();
 
         er.next(3.0);
         er.next(5.0);
@@ -166,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_display() {
-        let er = EfficiencyRatio::new(17).unwrap();
+        let er = EfficiencyRatio::<17>::new();
         assert_eq!(format!("{}", er), "ER(17)");
     }
 }
